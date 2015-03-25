@@ -363,10 +363,9 @@ class DrawFrame(wx.Frame):
         if dlg.ShowModal() == wx.ID_OK:
             ret = dlg.panel_2.get_vals()
             self.project.excel_rows['new'] = ret
-
-            self.log("updated excel new rows: "+str(vals))
             self.__update_listbox()
-            self.redraw_map(self.project.get_update_marker())   
+            self.redraw_map(self.project.get_update_marker()) 
+            self.log("updated excel new rows: "+str(ret))
         dlg.Destroy()
         event.Skip()
         
@@ -706,13 +705,13 @@ class excel_editor_dialog(wx.Dialog):
 class excel_editor_panel(wx.Panel):
     def __init__(self, parent, ids, args):
         wx.Panel.__init__(self, parent, ids, style=wx.TAB_TRAVERSAL)
-        vals = args[0]
+        self.vals = args[0]
         num2alpha = dict(zip(range(0, 26), string.ascii_uppercase))
         sizer_1 = wx.BoxSizer(wx.HORIZONTAL)
         self.labels = []
         self.text_ctrl = []
-        for val in vals:
-            label = wx.StaticText(self, wx.ID_ANY, _(val[1]))
+        for val in self.vals:
+            label = wx.StaticText(self, wx.ID_ANY, str(val[1]))
             text = wx.TextCtrl(self, wx.ID_ANY, str(num2alpha[val[0]]))
             self.labels.append(label)
             self.text_ctrl.append(text)
@@ -725,8 +724,9 @@ class excel_editor_panel(wx.Panel):
     def get_vals(self):
         a2n = dict(zip(string.ascii_uppercase, range(0, 26)))
         ret = []
-        for val in self.text_ctrl:
-            ret.append(int(a2n[val.GetValue()]))
+        assert len(self.text_ctrl)==len(self.vals), "number of vals dont match number of text boxes"
+        for val, name in zip(self.text_ctrl, self.vals):
+            ret.append([int(a2n[val.GetValue().upper()]),name[1]] )
         return ret
         
 

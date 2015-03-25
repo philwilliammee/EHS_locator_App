@@ -21,223 +21,155 @@
   Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
-import copy
-import webbrowser
-from geo_locator import locator, asset_locator
-from my_wrapper import draw
-import os
+import copy                             #deep copies of lists of lists
+import webbrowser                       # opens the 
+#import geo_locator as geo               # reads excel file gmaps the coord
+                                        # extends locator for assets adresses                                    
+from my_wrapper import draw             # writes the html file
+import os                               # to find th path
+import cPickle                          # saves the proct variables
+#import csv                             # write binaries unused
+import time
+
 DIR = os.path.dirname(os.path.abspath(__file__))
 DEST_DIR = os.path.join(DIR, 'html_lib')
 try:
     os.makedirs(DEST_DIR)
 except OSError:
     pass # already exists
-           
+     
 class project():
-    def __init__(self, parent):
-        self.parent = parent
-        self.path =""#pat
-        self.name = ""
-        self.html_name = ""
-        self.save = False
-        #data should be in the form: name, lat, long, excel_row, name
-        self.lost_data = []
-        self.comined_data = []
-        self.saved_data = []
-        self.lost_asset = []
-        self.saved_asset_data = []
-        self.text_loc = []
-        #a list of list of [[name, adress],[n2,a2],...]
-        self.names_adresses = []
+    def __init__(self):
+        self.proj_name = ""             # the name of the project .ehs extension see save_proj
+        self.html_name = ""             #name of the htm file is the same as the project name.html
+        #{'John_Smith': {'verified': False, 'assets': (None, None, None), 'date_updated': '20/03/2015', 'coord': (0,0), 'address': 'doha,qatar', 'id': 0},
+        self.employees = {}             #a dictionary of employee values
+        self.save = False               # unimplemented
+        self.lost_data = []             # used by Run locator to save a list of bad adresses
+        self.saved_data = []            # a list of red markers
+        self.saved_asset_data = []      #a list of blue markers
+        self.marker_loc = []            #a list of combined markers [number, coordinates locations, number, combined names, color]
+        self.excel_rows = {'SAP':[[0,'name'],[3,'address']], 
+                           'new':[[0, 'last'],[1,'first'],[6,'zone'],[7,'street'],[8,'building']], 
+                           'students':[[1, 'last'],[2,'first'],[10,'addr1'],[11,'addr2'],[12,'country']]}
         
-    def get_data(self):
-        #use len(self.saved_asset_data) to seperate data
-        my_locator = locator(update_log=self.parent.log)
-        self.combined_data = my_locator.combine_markers(copy.deepcopy(self.saved_asset_data + self.saved_data))
-        return self.combined_data
-    
-    def import_address_data(self, excel_path):
-        text_loc = []
-        my_locator = locator(update_log=self.parent.log)
-        my_locator.run_locator(excel_path=excel_path, html_name=self.html_name)
-        #save the data to the project
-        self.lost_data, self.saved_data = copy.deepcopy(my_locator.cant_find), copy.deepcopy(my_locator.found_cord) 
-
-        for loc in self.get_data():     
-            text_loc.append(get_img_loc(float(loc[1]), float(loc[2])))
-        self.build_open_html(False)
-        self.text_loc = text_loc
-        print len(text_loc)
-        return text_loc
-    
-    def import_asset_data(self, excel_path):
-        text_loc = []
-        '''
-        #save the data to the project
-        self.project.lost_asset, self.project.saved_asset_data = copy.deepcopy(self.asset_locator.cant_find), copy.deepcopy(self.asset_locator.found_cord)   
-        for loc in self.project.get_data():#self.asset_locator.comined_cord:      
-            text_loc.append(get_img_loc(float(loc[1]), float(loc[2])))
-        self.project.build_open_html(False)
-        '''
-        my_locator = asset_locator(update_log=self.parent.log)
-        my_locator.run_locator(excel_path=excel_path, html_name=self.html_name)
-        #save the data to the project
-        self.lost_asset, self.saved_asset_data = copy.deepcopy(my_locator.cant_find), copy.deepcopy(my_locator.found_cord) 
-        for loc in self.get_data():     
-            text_loc.append(get_img_loc(float(loc[1]), float(loc[2])))
-        print len(text_loc)
-        self.build_open_html(False)
-        self.text_loc = text_loc
-        return text_loc
- 
-    def save_project(self, filename):
-        if self.name != "":
-            self.build_open_html(False)
-            prjFile = open(filename, "w")
-            print>>prjFile, "n " + self.name.replace(" ", "_")       
-            print>>prjFile, "h " + str(self.html_name)
-            print>>prjFile, "d " + str(self.saved_data)
-            print>>prjFile, "a " + str(self.saved_asset_data)
-            self.save = False
-        else: self.parent.log("Please create or open a new project")
-
-    def load_project(self, filename):
-        error = False
-        f = read_file(filename)
-        lines = get_lines(f)#a dictionary
-        if "n" in lines.keys():
-            names = lines["n"]
-            if len(names) > 0:
-                a = names[-1]
-                a = repr(a).replace("\\",",")[1:-1]#remove backslash
-                a = a.split(',')
-                self.name = a[-1]
+    def set_employees(self, emps):
+        #@todo this needs more work
+        for e in emps:
+            v = vars(e)
+            name = v.pop('name', 0)
+            if name in self.employees.keys() and self.employees[name]['verified']==True:
+                #dont update a verified name
+                print" employee", name, " already verified", str(e.verified)
             else:
-                self.names=""
-        else: error = True
-        print "loaded file name", self.name
-        if "h" in lines.keys():
-            html_name = lines["h"]
-            if len(html_name ) > 0:
-                self.html_name = html_name[-1]
-        else: error = True
-
-        if "d" in lines.keys():
-            self.saved_data, s = strip_file(lines["d"])
-            
-        if "a" in lines.keys():
-            self.saved_asset_data, ss = strip_file(lines["a"])
-        if error == True:
-            self.parent.log("error loading project, try saving projects without white spaces or commas")
-        if s:
-            self.parent.log(s)  
-        if ss:
-            self.parent.log(ss)
-        
-        self.save = False
-        return error
+                print "updating employee"
+                self.employees[name] = v
+                self.employees[name]['date']=(time.strftime("%d/%m/%Y"))
     
-    def load_html(self, fiel ="./EHS_locator_test.html" ):
-        #currently unused
-        if self.name != "":
-            f = read_file(fiel, True)
-            data=[]
-            for line in f[29:]:
-                if line[0]=="[":
-                    line = line.replace("[", "")
-                    line = line.replace("]", "")
-                    line = line.replace('"', "")
-                    line = line.split(",")
-                    line = filter(None, line)       
-                    data.append(line)
-            return data
-        else: self.parent.log("Please create or open a new project")
+    def get_update_marker(self):
+        veri_cord=[]
+        cord = []
+        for name in self.employees.keys():
+            if 'student' in self.employees[name].keys():
+                veri_cord.append([name, 
+                             self.employees[name]['coord'][0], 
+                             self.employees[name]['coord'][1], 
+                             self.employees[name]['id'],
+                             name, 'GREEN'])
+            
+            elif self.employees[name]['verified']==True:
+                veri_cord.append([name, 
+                             self.employees[name]['coord'][0], 
+                             self.employees[name]['coord'][1], 
+                             self.employees[name]['id'],
+                             name, 'BLUE'])
+            elif self.employees[name]['verified']==False: 
+                cord.append([name, 
+                             self.employees[name]['coord'][0], 
+                             self.employees[name]['coord'][1], 
+                             self.employees[name]['id'],
+                             name, 'RED'])
+        #if saved data cord = data cord do not combine them
+        self.saved_data = combine_markers(cord)
+        self.saved_asset_data =  combine_markers(veri_cord)
+        #marker should be the only class that is ever modified
+        self.marker_loc = copy.copy(self.saved_asset_data + self.saved_data)
+        #should build open html be called here?
+        return self.marker_loc
+
+    def save_project(self, fname):
+        f = file(fname, 'wb')
+        cPickle.dump(self, f, protocol=cPickle.HIGHEST_PROTOCOL)
+        f.close()
+
+    def load_project(self, fname):
+        f = file(fname, 'rb')
+        loaded_obj = cPickle.load(f)
+        f.close()
+        return loaded_obj
     
     def build_open_html(self, gmap):
-        #build a hyml file that puts markers with identifiers at each coordinate
-        #save the fm_locator file to the local folder
-        path = os.path.join(DEST_DIR,self.html_name)
-        print path
-        if self.name != "" and self.html_name != "" and len(self.get_data()) > 1:
+        # get_update_marker should be called before this to get updated markers
+        # build a html java script file that puts markers with identifiers at each coordinate
+        # save the fm_locator file to the local folder
+        path = os.path.join(DEST_DIR, self.html_name)
+        if self.proj_name != "" and self.html_name != "":
             green = 'http://chart.apis.google.com/chart?cht=mm&chs=12x16&chco=FFFFFF,00FF00,000000&ext=.png'
             blue = 'http://chart.apis.google.com/chart?cht=mm&chs=12x16&chco=FFFFFF,0000FF,000000&ext=.png'
             red = 'http://chart.apis.google.com/chart?cht=mm&chs=12x16&chco=FFFFFF,FF0000,000000&ext=.png'
-            filter_cord_info = copy.deepcopy(self.get_data())
+            filter_cord_info = copy.deepcopy(self.marker_loc)
             for i , val in enumerate(filter_cord_info):
-                if i >= len(self.saved_asset_data):
-                    val.append(red)
-                else: val.append(blue)
+                #remove the errors from the list
+                if val[1] == None or val[2] == None:
+                    del filter_cord_info[i]
+                    continue
+                if val[5] == 'RED': val[5] = red
+                elif val[5] == 'BLUE': val[5] = blue
+
+                else: val[5] = green
             draw((path), filter_cord_info)
             if gmap==True:
                 self.open_gmap(path)
-        else: self.parent.log("Please create or open a new project")
+        else: return("Please create or open a new project")
             
     def open_gmap(self, f_name):
+        #opens the goolgle map display in the web browser
+        # the html file is generated by self.build_open_html()
         f_name = os.path.join(DEST_DIR,self.html_name)
-        print f_name
-        if self.name != "":
+        if self.proj_name != "":
             try:
                 webbrowser.open_new_tab(f_name) 
             except Exception as e:
-                self.parent.log("could not open "+f_name+" error "+str(e))
-        else: self.parent.log("Please create or open a new project")
-            
-def read_file(f_loc, r_n=False):
-    #@warning: this may have problems with blank spaces in a line
-    with open(str(f_loc), 'r') as f:
-        if r_n:#remove newline
-            lines = f.read().splitlines()
-        else:#leave raw
-            lines = f.readlines()
-        return lines
-     
-def get_lines(lines):
-    #returns a dictionary with the first value as the key
-    d={}
-    for line in lines:
-        if line[0] == "#": continue
-        d[line[0]] = line[1:].split()#strip()
-        #[x.strip() for x in line[1:].split()]
-    return d
+                return ("could not open "+f_name+" error "+str(e))
+        else: return ("Please create or open a new project")
 
-def strip_file(a, n=5):
-    #removes extra characters from text strings
-    s = ""
-    aa = ",".join(a)
-    aa = aa.replace(',,', ',')
-    aa = aa.replace('[','')
-    aa = aa.replace(']','')
-    aa = aa.replace("'",'')
-    aa = aa.split(',')
-    na = []
-    for a in aa:
-        if a=='u':
-            continue
-        else:
-            na.append(a)
-    aa = chunks(na, n)
-    
-    for x in aa:
-        if len(x)<n:
-            s = ("Warning found bad or no data saved. data = "+str(x))
-            aa.remove(x)
-    return aa, s
-
-def chunks(l, n):
-    n = max(1, n)
-    return [l[i:i + n] for i in range(0, len(l), n)]
-
-def get_img_loc(y, x):
-    #recieves a latitude and longitude and converts it to a position on the image
-    #original image size 4233, 4220
-    #Lower Left lat long coord 
-    #ylat = [25.369572, 25.206881]#bottom, top
-    #xlon = [51.387591, 51.607245]#left right
-    ylat = [25.385, 25.215]#top, bottom  make top bigger moves it down
-    xlon = [51.41, 51.607245]#left right make left bigger moves it left
-    newx = ard_map(x, xlon[0],xlon[1], 0, 4233)
-    newy = ard_map(y, ylat[0],ylat[1], 0, 4220)
-    return newx, newy
+def combine_markers(locator_info ):
+    #@todo improve eficiency this is poorly done
+    #find people who live in same place and combine names
+    #remove the like locations and return a unique set of locations and names at those coordinates
+    combine_cord_info = copy.deepcopy(locator_info)#copy the list
+    location={}
+    #combine the names
+    for x in  combine_cord_info:
+        assert len(x)==6, "geo_locator recieved data packet of the wrong size"
+        #x[1:2] = coordinates x[4] is combined name
+        location.setdefault((x[1],x[2]), []).append(x[4])#setdefault to append a dictionarry
+        vals = location[x[1],x[2]]
+        #@todo namesx[0] should be the street address
+        x[4]= ': '.join(vals) 
+                  
+    #remove the duplicates because still contains duplicates
+    count = 0
+    filter_cord_info = []
+    for i, l in enumerate(combine_cord_info):
+        tt = [[tt[1],tt[2]] for tt in combine_cord_info[i+1:]]
+        if [l[1],l[2]] in tt:
+            continue #with next iteration of the loop    
+        #else place ID to location
+        l[0]=str(count)
+        filter_cord_info.append(l)
+        count +=1
+    return filter_cord_info
 
 def ard_map(x, in_min, in_max, out_min, out_max):
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min   

@@ -1,3 +1,4 @@
+#!/usr/bin/env python2.7
 '''
 Created on Mar 12, 2015
 
@@ -5,19 +6,12 @@ Created on Mar 12, 2015
 '''
 
 def draw(htmlfile, locations):
-    assert len(locations)
+    assert len(locations), ('html recieved empty list ', locations)
     f = open(htmlfile,'w')
     f.write('<!DOCTYPE html>\n')
     f.write('<html>\n')
     f.write('<head>\n')
-    '''
-    self.drawmap(f)
-    self.drawgrids(f)
-    self.drawpoints(f)
-    self.drawradpoints(f)
-    self.drawpaths(f,self.paths)
-    '''
-#####start here
+
     f.write('<title>FM GEO Locate</title>\n')
     f.write('<meta name="viewport" content="initial-scale=1.0, user-scalable=no">\n')
     f.write('<meta charset="utf-8">\n')
@@ -48,10 +42,8 @@ def draw(htmlfile, locations):
 
     f.write('var sites = [\n')
     set_locations(f, locations)
-    #f.write('["Abdelrahman Ahmed", 25.3269511, 51.5292181, 1, "Abdelrahman, Ahmed residence"],\n')
-    #f.write('["Choi, Sunkyu", 25.2776372, 51.50524739999999, 2, "Choi, Sunkyu residence"],\n')
-    #f.write('["Dargham, Soha", 25.2916097, 51.5304368, 3, "Dargham, Soha residence"],\n')
-    #f.write('["Dargham, Soha" , 25.2916097, 51.5304368, 4, "Dargham, Soha residence"]\n')
+    #f.write('["name", 25.3269511, 51.5292181, 1, "residence"],\n')
+
     f.write('];\n')
 
 
@@ -97,6 +89,7 @@ def set_locations(f, locs):
             f.write(s)
     if len(loc)>=5:
         f.write('["'+str(tail[0])+ '",'+ str(tail[1]) + ',' + str(tail[2]) +',' + str(tail[3])+',"'+ str(tail[4])+'","'+ str(loc[-1])+'"'+']\n')
-        
-#loc =  [["Abdelrahman Ahmed", 25.3269511, 51.5292181, 1, "Abdelrahman, Ahmed residence"]]
-#draw("test.html", loc)
+
+if __name__=="__main__":
+    loc =  [["name", 25.3269511, 51.5292181, 1, "residence"]]
+    draw("test.html", loc)

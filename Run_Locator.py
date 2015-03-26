@@ -419,8 +419,6 @@ class DrawFrame(wx.Frame):
                     markers.append(self.cl)      
                     xs.append(4000)
                     ys.append(4000)
-                    print xs,
-                    print ys
                     img = paste_bitmaps(img, markers, xs,ys)
                 else: img = self.orig_bitmap
                 img.SaveFile(filename, wx.BITMAP_TYPE_JPEG)

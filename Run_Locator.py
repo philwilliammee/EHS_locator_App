@@ -37,11 +37,6 @@ import thread
 import string
 
 VERSION = "EHS locator"
-ImageFile = "./ehs_lib/Doha.jpg"
-GreenMarker = "./ehs_lib/green_marker.png"
-RedMarker = "./ehs_lib/red_marker.png"
-BlueMarker = "./ehs_lib/blue_marker.png"
-CL = "./ehs_lib/Copyleft.png"
 MARKER_SIZE = 220
 
 class NavPanel(NavCanvas.NavCanvas):
@@ -60,27 +55,28 @@ class bit_marker(FloatCanvas.ScaledBitmap2):
     # gmap markers format [name, ['coord'][0], ['coord'][1], ['id'], names, 'COLOR'])
     global MARKER_SIZE
     def __init__(self, comb_ID, X, Y, ID, names, color, Height=None, Width=None, Position=None):
-        self.green_marker = wx.Bitmap(GreenMarker)
-        self.red_marker = wx.Bitmap(RedMarker)
-        self.blue_marker = wx.Bitmap(BlueMarker)
         self.names = names
         self.XY = (X,Y)
         self.map_cord = self.get_map_coord()
         if self.map_cord[0] == None or  self.map_cord[1] ==None:
             self.obj = None
         else:
-            #add a bitmap to the canvas
             FloatCanvas.ScaledBitmap2.__init__(self, Bitmap=self.set_bitmap(color), 
-                        XY=self.map_cord , Height=MARKER_SIZE, Position='tl',)
+                            XY=self.map_cord , Height=MARKER_SIZE, Position='tl',)
             self.obj = True
+            
         self.id = comb_ID
         
     def set_bitmap(self, color):
         # selects the bit map style
         #receives wx.COLOR returns wx.Bitmap
-        if color=='BLUE': bitmap = self.blue_marker
-        elif color == 'RED': bitmap = self.red_marker
-        elif color == 'GREEN': bitmap = self.green_marker
+        GreenMarker = "./ehs_lib/green_marker.png"
+        RedMarker = "./ehs_lib/red_marker.png"
+        BlueMarker = "./ehs_lib/blue_marker.png"
+        bitmap = None
+        if color=='BLUE': bitmap = wx.Bitmap(BlueMarker)
+        elif color == 'RED': bitmap = wx.Bitmap(RedMarker)
+        elif color == 'GREEN': bitmap = wx.Bitmap(GreenMarker)
         else: raise Exception("color is not supported "+str(color))
         return bitmap  
     
@@ -118,7 +114,11 @@ class DrawFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
         wx.Frame.__init__(self, *args, **kwargs)
         '''--------------------- S T A R T   O F   I N I T -------------------------------'''
+        ImageFile = "./ehs_lib/Doha.jpg"
         self.orig_bitmap = wx.Bitmap(ImageFile)
+        self.orig_image = wx.Image(ImageFile)
+        RedMarker = "./ehs_lib/red_marker.png"
+        CL = "./ehs_lib/Copyleft.png"
         self.cl = wx.Bitmap(CL)
         self.red_marker = wx.Bitmap(RedMarker)
         #-------- Start Build Menu Bar --------------------------------
@@ -242,7 +242,6 @@ class DrawFrame(wx.Frame):
         self.Layout()
 
     def init_variables(self):
-        self.orig_image = wx.Image(ImageFile)
         
         self.width, self.height = self.orig_bitmap.GetSize()
         self.filename = ""              #name of the current file being edoted
@@ -310,6 +309,7 @@ class DrawFrame(wx.Frame):
     def box_dclick_event(self, event):
         name = event.GetText()
         emp = self.project.employees[name]
+        e=None
         # Creates a new project
         dlg = my_dialog(self, -1, "Create New EHS_locator Project", 
                         [name, emp])
@@ -322,21 +322,24 @@ class DrawFrame(wx.Frame):
                 emp["coord"]= eval(dlg.panel_2.text_ctrl_2.GetValue())
                 
             except Exception as e:
-                print ("evaluate error coord, assets not accepted "+str(e))
+                self.log("evaluate error coord, assets not accepted "+str(e))
                 
             try:
                 emp["assets"]=[int(dlg.panel_2.text_ctrl_6_1.GetValue()),
                             int(dlg.panel_2.text_ctrl_6_1.GetValue()),
                             int(dlg.panel_2.text_ctrl_6_1.GetValue())]
             except Exception as e:
-                print ("evaluate error coord, assets not accepted "+str(e))
+                self.log("evaluate error coord, assets not accepted "+str(e))
 
             emp["address"]=dlg.panel_2.text_ctrl_3.GetValue()
             
             emp["id"]= int(dlg.panel_2.text_ctrl_7.GetValue())
             
             emp["verified"]= dlg.panel_2.checkbox_1.IsChecked() 
-            self.log("updated emp: "+str(emp))
+            
+            if e == None:
+                self.log("updated emp: "+str(emp))
+                
             self.__update_listbox()
             self.redraw_map(self.project.get_update_marker())   
         dlg.Destroy()
@@ -387,6 +390,8 @@ class DrawFrame(wx.Frame):
 
     def export_img_event(self, event):
         #saves a JPEG image of the canvas and adds a marker bitmap at a list of coordinates
+        ImageFile = "./ehs_lib/Doha.jpg"
+        
         if self.project.proj_name != '':
             dlg = wx.FileDialog(self, "Choose a file", self.dirname,
                                 '', "*.jpg",wx.SAVE)
@@ -485,6 +490,7 @@ class DrawFrame(wx.Frame):
     def enable_gmap_handler(self, event):
         if self.project.proj_name != "":
             self.project.open_gmap(self.project.html_name)
+            self.redraw_map(self.project.get_update_marker())
         else:
             self.log("please create or open a project")
             
@@ -526,19 +532,6 @@ class DrawFrame(wx.Frame):
                 thread.start_new_thread(self.import_address_data_thread, 
                                         (self.filename, self.log))    
         else: self.log("please create or open a project, first!")
-        
-    def import_address_data_thread(self, excel_path, display):
-        #this is not an event it is a thread
-        my_locator = geo.locator(excel_path, self.project.excel_rows['SAP'], display)
-        my_locator.run_locator(excel_path=excel_path)
-        #save the data to the project
-        self.project.lost_data = my_locator.cant_find
-        self.project.set_employees(my_locator.employees)
-        marker_loc = self.project.get_update_marker()
-        self.project.build_open_html(False)
-        wx.CallAfter(self.__update_listbox,)
-        wx.CallAfter(self.redraw_map, self.project.marker_loc)
-        return marker_loc
             
     def import_asset_file_handler(self, event):
         #@todo need a check to verify proper format of adresses or else wrong rows can be used
@@ -572,6 +565,21 @@ class DrawFrame(wx.Frame):
                                         (self.filename, self.log))  
         else: self.log("please create or open a project, first!")
         
+    #----------------- T H R E A D S -------------------------------------------------------#
+    def import_address_data_thread(self, excel_path, display):
+        #this is not an event it is a thread
+        my_locator = geo.locator(excel_path, self.project.excel_rows['SAP'], display)
+        my_locator.run_locator(excel_path=excel_path)
+        
+        #save the data to the project
+        self.project.lost_data = my_locator.cant_find
+        self.project.set_employees(my_locator.employees)
+        marker_loc = self.project.get_update_marker()
+        self.project.build_open_html(False)
+         
+        wx.CallAfter(self.__update_listbox,)
+        wx.CallAfter(self.redraw_map, marker_loc)
+        
     def import_student_data_thread(self, excel_path, display):
         #save the data to the project
         my_locator = geo.student_locator(excel_path, self.project.excel_rows['students'], display)
@@ -580,10 +588,9 @@ class DrawFrame(wx.Frame):
         self.project.set_employees(my_locator.students)
         
         marker_loc = self.project.get_update_marker()
-        self.project.build_open_html(False)
+        self.project.build_open_html(False)      
         wx.CallAfter(self.__update_listbox, )
-        wx.CallAfter(self.redraw_map, self.project.marker_loc)
-        return marker_loc   
+        wx.CallAfter(self.redraw_map, marker_loc)  
         
     def import_asset_data_thread(self, excel_path, display):
         #save the data to the project
@@ -595,17 +602,15 @@ class DrawFrame(wx.Frame):
         marker_loc = self.project.get_update_marker()
         self.project.build_open_html(False)
         wx.CallAfter(self.__update_listbox,)
-        wx.CallAfter(self.redraw_map, self.project.marker_loc)
-        return marker_loc
+        wx.CallAfter(self.redraw_map, marker_loc)
         
     def redraw_map(self, text_loc=[]):
         #recieves a list of coordinates and puts markers on the canvas
-        
         #remove the objects from the canvas
         if self.display_obj:
             self.Canvas.RemoveObjects(self.display_obj)
         #delete all of the objects in the list so we can build new list
-        self.display_obj[:]=[]   
+        del self.display_obj[:] 
         self.Canvas.ZoomToBB()
         for loc in text_loc:
             #color, ID, XY, names, Height=None, Width=None, Position=Non
@@ -619,8 +624,10 @@ class DrawFrame(wx.Frame):
                 obj.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.l_clicked)      
     
                 self.display_obj.append(img)
-            
-        self.Canvas.Zoom(1)
+        try:
+            self.Canvas.ZoomToBB()
+        except Exception as e:
+            self.log(" error zooming canvas "+str(e))
         
     def log(self, s):
         self.sb.SetStatusText(s, 0)

@@ -59,10 +59,8 @@ class project():
             v = vars(e)
             name = v.pop('name', 0)
             if name in self.employees.keys() and self.employees[name]['verified']==True:
-                #dont update a verified name
-                print" employee", name, " already verified", str(e.verified)
+                pass
             else:
-                print "updating employee"
                 self.employees[name] = v
                 self.employees[name]['date']=(time.strftime("%d/%m/%Y"))
     
@@ -93,9 +91,9 @@ class project():
         self.saved_data = combine_markers(cord)
         self.saved_asset_data =  combine_markers(veri_cord)
         #marker should be the only class that is ever modified
-        self.marker_loc = copy.copy(self.saved_asset_data + self.saved_data)
+        self.marker_loc = copy.deepcopy(self.saved_asset_data + self.saved_data)
         #should build open html be called here?
-        return self.marker_loc
+        return copy.deepcopy(self.marker_loc)
 
     def save_project(self, fname):
         f = file(fname, 'wb')
